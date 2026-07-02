@@ -136,7 +136,7 @@ body{
 
 /* ============ LIGHT SECTIONS ============ */
 .light{background:var(--paper);color:var(--ink)}
-.section{padding:clamp(72px,12vw,150px) clamp(20px,5vw,60px)}
+.section{padding:clamp(56px,12vw,150px) clamp(20px,5vw,60px)}
 .inner{max-width:var(--maxw);margin:0 auto}
 
 .statement p.big{
@@ -316,6 +316,14 @@ footer{
 
 @media (max-width:760px){
   .stage-grid{grid-template-columns:1fr}
+  .stage-card{
+    display:grid;
+    grid-template-columns:104px 1fr;
+    grid-template-rows:auto auto 1fr;
+    column-gap:16px;row-gap:8px;
+  }
+  .stage-card canvas{grid-column:1;grid-row:1/4;width:104px;align-self:start}
+  .stage-num,.stage-card h3,.stage-card p{grid-column:2}
   .colophon .inner{grid-template-columns:1fr}
   .hero-bottom{flex-direction:column;align-items:flex-start}
   .stage-indicator{text-align:left}
