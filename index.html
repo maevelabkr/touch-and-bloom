@@ -573,27 +573,41 @@ footer{
   const heroCenter=document.getElementById('heroCenter');
   const canvas=document.getElementById('heroCanvas');
   const ctx=canvas.getContext('2d');
-  const N=720;
+  const N=1200;
   let W,H,particles=[];
   const mouse={x:-9999,y:-9999,tx:-9999,ty:-9999,active:false};
   const RADIUS=190;
 
-  /* a large lavender silhouette behind the headline: PLANT_N particles get a
-     "home" on it. coherence (coh) rises while the visitor interacts and decays
-     after IDLE_MS — the plant assembles from the drift and dissolves back. */
-  const bloomShape=buildBloom();
-  const PLANT=[], PLANT_N=560, IDLE_MS=6000;
-  let coh=0, lastTouch=performance.now()+4000; // load grace: bloom greets the visitor
+  /* a small field of lavenders behind the headline — different life stages,
+     sizes and positions. PLANT_N particles get a "home" on one of them.
+     coherence (coh) rises while the visitor interacts and decays after
+     IDLE_MS — the field assembles from the drift and dissolves back. */
+  const SHAPES={sprout:buildSprout(),seedling:buildSeedling(),bloom:buildBloom()};
+  // cx/cy = center as fraction of the hero, s = scale relative to the base size
+  const PLANT_SPECS=[
+    {shape:'bloom',   cx:.50, cy:.46, s:1.00},
+    {shape:'seedling',cx:.16, cy:.56, s:.62},
+    {shape:'bloom',   cx:.84, cy:.52, s:.74},
+    {shape:'sprout',  cx:.30, cy:.74, s:.40},
+    {shape:'sprout',  cx:.70, cy:.79, s:.32},
+  ];
+  const PLANT=[], PLANT_N=1000, IDLE_MS=6000;
+  let coh=0, lastTouch=performance.now()+4000; // load grace: the field greets the visitor
   const plantColors={violet:'#8465C9',lilac:'#B9A6E8',sage:'#7E8A6E'};
   function layoutPlant(){
-    const ph=Math.min(H*0.74, W*1.1);
-    const pw=ph*0.75;
-    const x0=W/2-pw/2, y0=H*0.5-ph*0.52;
+    const B=Math.min(H*0.62, W*0.9);
+    const totalS=PLANT_SPECS.reduce((a,p)=>a+p.s,0);
     PLANT.length=0;
-    for(let i=0;i<PLANT_N;i++){
-      const pt=bloomShape[(i*7919)%bloomShape.length];
-      PLANT.push({x:x0+pt.x*pw, y:y0+pt.y*ph, c:pt.c});
-    }
+    PLANT_SPECS.forEach(spec=>{
+      const shape=SHAPES[spec.shape];
+      const n=Math.round(PLANT_N*spec.s/totalS);
+      const ph=B*spec.s, pw=ph*0.75;
+      const x0=spec.cx*W-pw/2, y0=spec.cy*H-ph/2;
+      for(let i=0;i<n&&PLANT.length<PLANT_N;i++){
+        const pt=shape[(i*7919)%shape.length];
+        PLANT.push({x:x0+pt.x*pw, y:y0+pt.y*ph, c:pt.c});
+      }
+    });
   }
 
   function resize(){
@@ -672,7 +686,7 @@ footer{
       // ease toward the lavender silhouette while coherent (positional lerp —
       // critically damped, no orbiting; dispersal falls back to drift velocity)
       let plantMix=0;
-      if(p.home>=0&&coh>0.01){
+      if(p.home>=0&&p.home<PLANT.length&&coh>0.01){
         const hp=PLANT[p.home];
         p.x+=(hp.x-p.x)*0.075*coh;
         p.y+=(hp.y-p.y)*0.075*coh;
