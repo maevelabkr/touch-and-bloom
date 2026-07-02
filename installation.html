@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Touch and Bloom — v4</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<style>
+  :root {
+    --bg:#06060a; --ink:#e8e4d8; --dim:#5a5650;
+    --accent:#b89dd8; --live:#9eb89a; --warn:#e8a464;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { background:var(--bg); color:var(--ink); font-family:Georgia,serif;
+    overflow:hidden; height:100%; }
+  #wrap { position:relative; width:100vw; height:100vh;
+    display:flex; align-items:center; justify-content:center; }
+  canvas { display:block; position:absolute; top:54%; left:50%;
+    transform:translate(-50%,-50%); }
+  #vignette { z-index:3; pointer-events:none; position:absolute; inset:0;
+    background:radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.85) 100%); }
+
+  /* ===== NARRATIVE — TOP BAND, ABOVE the art ===== */
+  #narrative {
+    position:absolute; left:50%; top:70px;
+    transform:translateX(-50%);
+    z-index:9; pointer-events:none;
+    text-align:center; max-width:85vw;
+    opacity:0; transition:opacity 1.6s cubic-bezier(.4,0,.2,1);
+  }
+  #narrative.visible { opacity:1; }
+  #narrative .role {
+    font-family:Georgia,serif; font-style:italic;
+    font-size:clamp(24px, 3.6vw, 42px);
+    color:var(--ink); letter-spacing:.02em; line-height:1.25;
+    text-shadow:0 0 24px rgba(0,0,0,0.9);
+  }
+  #narrative .role em { color:var(--accent); }
+  #narrative .fact {
+    margin-top:12px;
+    font-family:'Courier New',monospace; font-size:10px;
+    color:var(--ink); letter-spacing:.14em;
+    text-transform:uppercase; opacity:.5;
+    max-width:520px; margin-left:auto; margin-right:auto;
+    line-height:1.7;
+  }
+
+  /* ===== CONNECT BUTTON — top-left, compact ===== */
+  #connectBar {
+    position:absolute; top:16px; left:16px; z-index:30;
+    display:flex; flex-direction:column; gap:6px;
+  }
+  #connectBtn {
+    background:var(--accent); color:#000; border:none;
+    padding:10px 20px; font-family:'Courier New',monospace;
+    font-size:11px; font-weight:bold; letter-spacing:.1em; cursor:pointer;
+    transition:all .2s;
+  }
+  #connectBtn:hover { background:#cfb3e8; }
+  #connectBtn.connected { background:var(--live); }
+  #connectBtn.error { background:var(--warn); }
+  #connStatus {
+    font-family:'Courier New',monospace; font-size:9px;
+    color:var(--dim); letter-spacing:.06em;
+  }
+  #debug {
+    margin-top:6px;
+    background:rgba(0,0,0,.55); backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,.08); padding:9px 11px;
+    font-family:'Courier New',monospace; font-size:10px;
+    min-width:190px;
+  }
+  #debug .row { display:flex; justify-content:space-between; padding:2px 0; color:var(--dim); }
+  #debug .row .val { color:var(--ink); font-weight:bold; }
+  #debug .row .val.active { color:var(--live); }
+
+  /* ===== CONTROL PANEL — top right ===== */
+  .panel {
+    position:absolute; top:16px; right:16px; z-index:15;
+    display:flex; flex-direction:column; gap:6px;
+    max-height:88vh; overflow-y:auto;
+  }
+  .panel::-webkit-scrollbar { width:0; }
+  .panel .grp {
+    display:flex; flex-direction:column; gap:4px;
+    padding:8px 10px;
+    border:1px solid rgba(255,255,255,.06);
+    background:rgba(0,0,0,.55); backdrop-filter:blur(6px);
+  }
+  .panel .grp-label {
+    font-family:'Courier New',monospace; font-size:8px;
+    letter-spacing:.15em; color:var(--dim);
+  }
+  .panel button, .panel label {
+    font-family:'Courier New',monospace; font-size:9px;
+    color:var(--dim); cursor:pointer;
+    border:1px solid var(--dim); padding:5px 8px;
+    background:transparent; transition:all .18s; text-align:right;
+  }
+  .panel button:hover, .panel label:hover { border-color:var(--accent); color:var(--accent); }
+  .panel button.on { border-color:var(--live); color:var(--live); }
+  .panel input[type=file] { display:none; }
+  .panel input[type=range] { width:130px; accent-color:var(--accent); }
+  .slider-row { display:flex; flex-direction:column; gap:2px; align-items:flex-end; }
+  .slider-row span { font-size:8px; color:var(--dim); }
+  .stage-loader { display:flex; flex-direction:column; gap:3px; }
+  .stage-loader label { text-align:center; min-width:130px; }
+  .stage-loader label.loaded { border-color:var(--live); color:var(--live); }
+
+  /* ===== BOTTOM: stage dots ===== */
+  .bottom-hud {
+    position:absolute; bottom:18px; left:50%; transform:translateX(-50%);
+    z-index:7; font-family:'Courier New',monospace; text-align:center;
+  }
+  .stage-dots { display:flex; gap:44px; margin-bottom:9px; justify-content:center; }
+  .stage-dots .dot {
+    display:flex; flex-direction:column; align-items:center; gap:5px;
+    font-size:8px; color:var(--dim); letter-spacing:.2em;
+    text-transform:uppercase; transition:color 1s;
+  }
+  .stage-dots .dot::before {
+    content:''; width:6px; height:6px; border-radius:50%;
+    background:var(--dim); transition:all 1s;
+  }
+  .stage-dots .dot.active { color:var(--accent); }
+  .stage-dots .dot.active::before { background:var(--accent); box-shadow:0 0 12px var(--accent); }
+  .bar { width:300px; height:1px; background:rgba(255,255,255,.1); margin:0 auto; }
+  .bar-fill { height:100%; background:var(--accent); width:0%; transition:width .1s linear; }
+
+  /* ===== CURIOSITY — bottom band, for the audience ===== */
+  #curiosity {
+    position:absolute; bottom:70px; left:50%; transform:translateX(-50%);
+    z-index:8; pointer-events:none;
+    text-align:center; max-width:640px; padding:0 24px;
+    opacity:0; transition:opacity 1.6s ease;
+  }
+  #curiosity.visible { opacity:1; }
+  #curiosity .curLabel {
+    font-family:'Courier New',monospace; font-size:9px;
+    letter-spacing:.3em; color:var(--accent);
+    text-transform:uppercase; margin-bottom:8px;
+  }
+  #curiosity .curText {
+    font-family:Georgia,serif; font-size:15px;
+    color:var(--ink); line-height:1.6; opacity:.85;
+    text-shadow:0 0 18px rgba(0,0,0,.9);
+  }
+
+  /* ===== PRESENTATION MODE TOGGLE ===== */
+  #presentBtn {
+    position:absolute; bottom:16px; right:16px; z-index:40;
+    background:transparent; color:var(--dim);
+    border:1px solid var(--dim); padding:8px 16px;
+    font-family:'Courier New',monospace; font-size:10px;
+    letter-spacing:.1em; cursor:pointer; transition:all .25s;
+  }
+  #presentBtn:hover { border-color:var(--accent); color:var(--accent); }
+  body.presentation #presentBtn {
+    opacity:.12; border-color:transparent;
+  }
+  body.presentation #presentBtn:hover { opacity:1; border-color:var(--dim); }
+
+  /* PRESENTATION MODE: hide operator UI, keep audience elements */
+  body.presentation #connectBar,
+  body.presentation .panel { display:none !important; }
+  /* keep the stage dots (nice for audience), hide only the raw bar */
+  body.presentation .bar { opacity:0; }
+</style>
+</head>
+<body>
+<div id="wrap">
+
+  <div id="connectBar">
+    <button id="connectBtn">🔌 CONNECT ARDUINO</button>
+    <div id="connStatus">Chrome or Edge only</div>
+    <div id="debug">
+      <div class="row"><span>status</span><span class="val" id="dStatus">disconnected</span></div>
+      <div class="row"><span>value</span><span class="val" id="dRaw">—</span></div>
+      <div class="row"><span>touch</span><span class="val" id="dTouch">0.000</span></div>
+      <div class="row"><span>msg/s</span><span class="val" id="dRate">0</span></div>
+    </div>
+  </div>
+
+  <!-- NARRATIVE — top band, above the flower -->
+  <div id="narrative">
+    <div class="role" id="roleText"></div>
+    <div class="fact" id="factText"></div>
+  </div>
+
+  <div class="panel">
+    <div class="grp">
+      <span class="grp-label">FALLBACK SOURCE</span>
+      <button id="srcMouse">use mouse (hold click = touch)</button>
+      <button id="srcAuto">auto-cycle demo</button>
+    </div>
+    <div class="grp">
+      <span class="grp-label">STAGES</span>
+      <div class="stage-loader">
+        <label id="lbl0">1. sprout<input type="file" id="img0" accept="image/*"></label>
+        <label id="lbl1">2. seedling<input type="file" id="img1" accept="image/*"></label>
+        <label id="lbl2">3. bloom<input type="file" id="img2" accept="image/*"></label>
+      </div>
+      <button id="useDemo">use demo placeholders</button>
+    </div>
+    <div class="grp">
+      <span class="grp-label">TOUCH</span>
+      <div class="slider-row"><span>threshold</span>
+        <input type="range" id="sThreshold" min="0" max="100" value="15"></div>
+      <div class="slider-row"><span>cycle speed</span>
+        <input type="range" id="sCycleSpeed" min="1" max="30" value="5"></div>
+      <div class="slider-row"><span>release delay (sec)</span>
+        <input type="range" id="sRelease" min="1" max="20" value="3"></div>
+    </div>
+    <div class="grp">
+      <span class="grp-label">CLOUD</span>
+      <div class="slider-row"><span>cloud radius</span>
+        <input type="range" id="sCloud" min="200" max="700" value="450"></div>
+      <div class="slider-row"><span>turbulence</span>
+        <input type="range" id="sTurbulence" min="0" max="100" value="55"></div>
+    </div>
+    <div class="grp">
+      <span class="grp-label">VISUAL</span>
+      <div class="slider-row"><span>density</span>
+        <input type="range" id="sDensity" min="4000" max="20000" value="12000"></div>
+      <div class="slider-row"><span>point size</span>
+        <input type="range" id="sSize" min="5" max="30" value="12"></div>
+      <div class="slider-row"><span>depth relief</span>
+        <input type="range" id="sDepth" min="0" max="60" value="12"></div>
+    </div>
+  </div>
+
+  <div class="bottom-hud">
+    <div class="stage-dots" id="stageDots">
+      <div class="dot" id="dot0">sprout</div>
+      <div class="dot" id="dot1">seedling</div>
+      <div class="dot" id="dot2">bloom</div>
+    </div>
+    <div class="bar"><div class="bar-fill" id="barfill"></div></div>
+  </div>
+
+  <!-- CURIOSITY — bottom band for the audience -->
+  <div id="curiosity">
+    <div class="curLabel">did you know</div>
+    <div class="curText" id="curText"></div>
+  </div>
+
+  <!-- PRESENTATION MODE TOGGLE -->
+  <button id="presentBtn">🎭 presentation mode</button>
+
+  <div id="vignette"></div>
+</div>
+
+<script>
+// ====================================================================
+// TOUCH AND BLOOM v4
+//  • Narrative text moved to TOP BAND (above the art)
+//  • Cycle advances ONLY while sensor is actively touched (raw value)
+//  • NO auto-rotation — flower faces the viewer, frontal portrait
+//  • Photographic realism improvements:
+//      - higher image sampling (300px grid → many more points)
+//      - smaller default point size
+//      - per-point brightness/alpha variation (film grain feel)
+//      - flat depth by default (slider to add relief)
+// ====================================================================
+
+const NUM_STATES = 3;
+const NARRATIVE = [
+  { role: "you are the seed's first <em>light</em>",
+    fact: "lavender begins with warmth. without your touch, no germination." },
+  { role: "you are the <em>rain</em>",
+    fact: "the young plant grows silver leaves to store what you give." },
+  { role: "you are the <em>sun</em>",
+    fact: "in full bloom, each flower is an invitation to bees. you brought it here." }
+];
+const REST_NARRATIVE = {
+  role: "you let go. <em>she rests</em>.",
+  fact: "release the plant and she disperses. all forms return to possibility."
+};
+
+// CURIOSITIES — one fun fact per stage, shown at the bottom for the audience
+const CURIOSITIES = [
+  "A single lavender seed can wait years in the soil before conditions are right to sprout.",
+  "Young lavender grows silver-grey leaves — the colour reflects sunlight and saves water in dry climates.",
+  "Lavender's scent isn't for us: it evolved to guide bees. One plant can be visited by hundreds in a day."
+];
+const REST_CURIOSITY = "Lavender has been used by humans for over 2,500 years — the Romans added it to their baths. Its name comes from the Latin 'lavare', to wash.";
+
+let pgRender;
+let W=900, H=900;
+
+let stateClouds = [null, null, null];
+let loadedCount = 0;
+let particles = [];
+let pairCount = 12000;
+
+// Sensor
+let touchValue = 0;            // RAW instantaneous value
+let lastTouchTime = 0;
+let cycleIntent = 0;
+let cloudMix = 0;
+let touchThreshold = 0.15;
+let cycleSpeed = 0.005;
+let releaseDelay = 3;
+
+let sensorSource = 'none';
+let autoCyclePos = 0;
+let mouseIsDown = false;
+
+// Serial
+let serialPort = null, serialReader = null, serialBuffer = '';
+let serialMsgCount = 0, serialWindowStart = 0;
+let serialLastValue = '—';
+
+// Cloud
+let cloudRadius = 450;
+let cloudTurbulence = 0.55;
+
+// Visual
+let pointSize = 1.2;
+let depthRelief = 12;      // z-jitter amount; low = flat/photographic
+
+let currentDisplayStage = -1;
+
+// ====================================================================
+function setup(){
+  W = min(windowWidth, 1200);
+  H = min(windowHeight, 1200);
+  pixelDensity(1);
+  let c = createCanvas(W, H);
+  c.parent('wrap');
+  pgRender = createGraphics(W, H, WEBGL);
+  pgRender.pixelDensity(1);
+
+  document.getElementById('connectBtn').addEventListener('click', connectSerial);
+  document.getElementById('presentBtn').addEventListener('click', togglePresentation);
+  for(let i=0; i<NUM_STATES; i++){
+    document.getElementById('img'+i).addEventListener('change', e=> loadStageImage(e, i));
+  }
+  document.getElementById('useDemo').addEventListener('click', loadDemoStages);
+  document.getElementById('srcMouse').addEventListener('click', ()=> setSource('mouse'));
+  document.getElementById('srcAuto').addEventListener('click', ()=> setSource('auto'));
+
+  document.getElementById('sThreshold').addEventListener('input', e=> touchThreshold = e.target.value/100);
+  document.getElementById('sCycleSpeed').addEventListener('input', e=> cycleSpeed = e.target.value/2000);
+  document.getElementById('sRelease').addEventListener('input', e=> releaseDelay = parseInt(e.target.value));
+  document.getElementById('sCloud').addEventListener('input', e=> cloudRadius = parseInt(e.target.value));
+  document.getElementById('sTurbulence').addEventListener('input', e=> cloudTurbulence = e.target.value/100);
+  document.getElementById('sDensity').addEventListener('input', e=>{
+    pairCount = parseInt(e.target.value); buildParticles();
+  });
+  document.getElementById('sSize').addEventListener('input', e=> pointSize = e.target.value/10);
+  document.getElementById('sDepth').addEventListener('input', e=>{
+    depthRelief = parseInt(e.target.value);
+    // depth change requires re-sampling? no — stored per point at load.
+    // we scale the stored z at render time instead (zFactor).
+  });
+
+  // mouse press = touch (more honest simulation of the sensor)
+  window.addEventListener('mousedown', ()=> mouseIsDown = true);
+  window.addEventListener('mouseup', ()=> mouseIsDown = false);
+
+  buildParticles();
+  loadDemoStages();
+}
+
+// ====================================================================
+// SERIAL
+// ====================================================================
+async function connectSerial(){
+  const btn = document.getElementById('connectBtn');
+  const status = document.getElementById('connStatus');
+  if(!('serial' in navigator)){
+    btn.classList.add('error'); btn.textContent = '❌ NOT SUPPORTED';
+    status.textContent = 'Use Chrome or Edge';
+    return;
+  }
+  if(serialPort){
+    try { await serialReader.cancel(); } catch(e){}
+    try { await serialPort.close(); } catch(e){}
+    serialPort = null; serialReader = null;
+    btn.classList.remove('connected');
+    btn.textContent = '🔌 CONNECT ARDUINO';
+    status.textContent = 'disconnected';
+    document.getElementById('dStatus').textContent = 'disconnected';
+    sensorSource = 'none';
+    return;
+  }
+  try {
+    status.textContent = 'select port...';
+    serialPort = await navigator.serial.requestPort();
+    await serialPort.open({ baudRate: 9600 });
+    btn.classList.add('connected');
+    btn.textContent = '✓ CONNECTED';
+    status.textContent = 'touch the plant';
+    document.getElementById('dStatus').textContent = 'connected';
+    document.getElementById('dStatus').classList.add('active');
+    sensorSource = 'serial';
+    serialWindowStart = millis();
+    serialMsgCount = 0;
+    const decoder = new TextDecoderStream();
+    serialPort.readable.pipeTo(decoder.writable);
+    serialReader = decoder.readable.getReader();
+    readSerialLoop();
+  } catch(e){
+    btn.classList.add('error'); btn.textContent = 'FAILED';
+    status.textContent = e.message;
+    serialPort = null;
+  }
+}
+
+async function readSerialLoop(){
+  try {
+    while(true){
+      const { value, done } = await serialReader.read();
+      if(done) break;
+      serialBuffer += value;
+      let nl;
+      while((nl = serialBuffer.indexOf('\n')) >= 0){
+        const line = serialBuffer.slice(0, nl).trim();
+        serialBuffer = serialBuffer.slice(nl+1);
+        serialMsgCount++;
+        const num = parseFloat(line);
+        if(!isNaN(num) && isFinite(num)){
+          touchValue = num > 1.5
+            ? constrain((num - 50) / 950, 0, 1)
+            : constrain(num, 0, 1);
+          serialLastValue = num.toFixed(3);
+          if(touchValue > touchThreshold) lastTouchTime = millis()/1000;
+        }
+      }
+    }
+  } catch(e){ sensorSource = 'none'; }
+}
+
+function setSource(src){
+  sensorSource = src;
+  document.getElementById('srcMouse').classList.toggle('on', src==='mouse');
+  document.getElementById('srcAuto').classList.toggle('on', src==='auto');
+}
+
+// ====================================================================
+// IMAGES → POINT CLOUDS
+// Higher resolution sampling for photographic detail
+// ====================================================================
+function loadStageImage(evt, stageIdx){
+  const file = evt.target.files[0];
+  if(!file) return;
+  const url = URL.createObjectURL(file);
+  loadImage(url, img => {
+    stateClouds[stageIdx] = imageToPointCloud(img, stageIdx);
+    document.getElementById('lbl'+stageIdx).classList.add('loaded');
+    loadedCount = stateClouds.filter(s => s !== null).length;
+    buildParticles();
+    URL.revokeObjectURL(url);
+  });
+}
+
+function imageToPointCloud(img, stageIdx){
+  // HIGHER resolution sampling: 300px grid (was 220)
+  // = up to ~90k candidate pixels → dense photographic silhouette
+  const targetSize = 300;
+  const aspect = img.width / img.height;
+  const sw = aspect > 1 ? targetSize : floor(targetSize * aspect);
+  const sh = aspect > 1 ? floor(targetSize / aspect) : targetSize;
+  const off = createGraphics(sw, sh);
+  off.image(img, 0, 0, sw, sh);
+  off.loadPixels();
+  const pts = [];
+  for(let y=0; y<sh; y++){
+    for(let x=0; x<sw; x++){
+      const idx = 4 * (y*sw + x);
+      const r = off.pixels[idx], g = off.pixels[idx+1];
+      const b = off.pixels[idx+2], a = off.pixels[idx+3];
+      if(a < 30) continue;
+      const brightness = (r+g+b)/3;
+      if(brightness < 18 || brightness > 252) continue;
+      const px = (x/sw - 0.5) * 420;
+      const py = (y/sh - 0.5) * 420;
+      // store normalized z jitter; scaled by depthRelief slider at render
+      const pz = (noise(x*0.05, y*0.05, stageIdx*10) - 0.5) * 2; // -1..1
+      pts.push({ x:px, y:py, z:pz, r, g, b });
+    }
+  }
+  off.remove();
+  return pts;
+}
+
+// ====================================================================
+// DEMO PLACEHOLDERS (procedural — will always look "drawn";
+// real photos are what bring realism)
+// ====================================================================
+function loadDemoStages(){
+  stateClouds[0] = generateSprout();
+  stateClouds[1] = generateSeedling();
+  stateClouds[2] = generateBloom();
+  for(let i=0; i<NUM_STATES; i++) document.getElementById('lbl'+i).classList.add('loaded');
+  loadedCount = NUM_STATES;
+  buildParticles();
+}
+function generateSprout(){
+  const pts = [];
+  for(let i=0; i<2000; i++){
+    const t = random();
+    if(t < 0.3){
+      pts.push({ x:random(-2,2), y:lerp(180,50,t/0.3)+random(-2,2), z:(random()-0.5)*2,
+        r:100+random(30), g:130+random(40), b:60+random(20) });
+    } else {
+      const side = random()<0.5?-1:1, lt=(t-0.3)/0.7;
+      pts.push({ x:side*(5+sin(lt*PI)*25*(0.4+lt*0.3))+random(-3,3),
+        y:lerp(60,-20,lt)+random(-5,5), z:(random()-0.5)*2,
+        r:120+random(40), g:170+random(45), b:80+random(25) });
+    }
+  }
+  return pts;
+}
+function generateSeedling(){
+  const pts = [];
+  for(let i=0; i<3000; i++){
+    const t = random(), side = random()<0.5?-1:1;
+    if(t < 0.4){
+      pts.push({ x:random(-3,3), y:lerp(180,-80,t/0.4)+random(-2,2), z:(random()-0.5)*2,
+        r:90+random(30), g:140+random(40), b:65+random(20) });
+    } else {
+      const lt=(t-0.4)/0.6;
+      pts.push({ x:side*random(0,35*(1-lt*0.4))+random(-2,2),
+        y:lerp(0,-150,lt)+random(-4,4), z:(random()-0.5)*2,
+        r:110+random(40), g:160+random(45), b:75+random(25) });
+    }
+  }
+  return pts;
+}
+function generateBloom(){
+  const pts = [];
+  for(let i=0; i<4500; i++){
+    const stemIdx=floor(random(6)), stemX=(stemIdx-2.5)*22+random(-3,3), t=random();
+    if(t < 0.5){
+      pts.push({ x:stemX+sin(t*15)*10*(1-t*0.4)+random(-2,2),
+        y:lerp(180,-60,t/0.5)+random(-3,3), z:(random()-0.5)*2,
+        r:95+random(30), g:135+random(40), b:70+random(25) });
+    } else {
+      const flT=(t-0.5)/0.5;
+      pts.push({ x:stemX+(random()-0.5)*18, y:lerp(-60,-200,flT)+random(-8,8), z:(random()-0.5)*2,
+        r:140+random(70), g:90+random(50), b:180+random(60) });
+    }
+  }
+  return pts;
+}
+
+// ====================================================================
+// PARTICLES — with per-point photographic variation
+// ====================================================================
+function buildParticles(){
+  particles = [];
+  if(loadedCount === 0) return;
+  for(let i=0; i<pairCount; i++){
+    const targets = [];
+    for(let s=0; s<NUM_STATES; s++){
+      if(stateClouds[s]){
+        const cloud = stateClouds[s];
+        const pt = cloud[floor(random(cloud.length))];
+        targets.push({ x:pt.x, y:pt.y, z:pt.z, r:pt.r, g:pt.g, b:pt.b });
+      } else { targets.push(null); }
+    }
+    const firstTarget = targets.find(t => t !== null);
+    const cloudAngle = random(TWO_PI);
+    const cloudElev = acos(random(-1, 1));
+    particles.push({
+      targets,
+      cur:{ x:firstTarget.x, y:firstTarget.y, z:firstTarget.z * depthRelief },
+      vx:0, vy:0, vz:0,
+      cloudDir:{
+        x: sin(cloudElev)*cos(cloudAngle),
+        y: cos(cloudElev),
+        z: sin(cloudElev)*sin(cloudAngle)
+      },
+      cloudDist: 0.4 + random() * 0.8,
+      driftSeed: random(1000),
+      phase: random(TWO_PI),
+      // PHOTOGRAPHIC GRAIN: subtle per-point brightness & alpha variation
+      grainBright: 0.85 + random() * 0.3,   // 0.85–1.15 brightness multiplier
+      grainAlpha: 0.7 + random() * 0.3,     // 0.7–1.0 alpha multiplier
+      grainSize: 0.7 + random() * 0.6       // 0.7–1.3 size variation
+    });
+  }
+}
+
+// ====================================================================
+// NARRATIVE
+// ====================================================================
+function updateNarrative(){
+  const narrEl = document.getElementById('narrative');
+  const roleEl = document.getElementById('roleText');
+  const factEl = document.getElementById('factText');
+  const curEl = document.getElementById('curiosity');
+  const curTextEl = document.getElementById('curText');
+  if(cloudMix > 0.55){
+    if(currentDisplayStage !== -1){
+      currentDisplayStage = -1;
+      roleEl.innerHTML = REST_NARRATIVE.role;
+      factEl.innerHTML = REST_NARRATIVE.fact;
+      curTextEl.textContent = REST_CURIOSITY;
+    }
+    narrEl.classList.add('visible');
+    curEl.classList.add('visible');
+    return;
+  }
+  if(touchValue > touchThreshold * 0.7 || cloudMix < 0.15){
+    const stage = constrain(floor(cycleIntent), 0, NUM_STATES-1);
+    if(stage !== currentDisplayStage){
+      currentDisplayStage = stage;
+      roleEl.innerHTML = NARRATIVE[stage].role;
+      factEl.innerHTML = NARRATIVE[stage].fact;
+      curTextEl.textContent = CURIOSITIES[stage];
+    }
+    narrEl.classList.add('visible');
+    curEl.classList.add('visible');
+  } else {
+    narrEl.classList.remove('visible');
+    curEl.classList.remove('visible');
+  }
+}
+
+// PRESENTATION MODE — hides operator UI, keeps audience elements
+let presentationMode = false;
+function togglePresentation(){
+  presentationMode = !presentationMode;
+  document.body.classList.toggle('presentation', presentationMode);
+  const btn = document.getElementById('presentBtn');
+  btn.textContent = presentationMode ? '🎭 exit presentation' : '🎭 presentation mode';
+}
+
+// ====================================================================
+// MAIN LOOP
+// ====================================================================
+function draw(){
+  // ---- read sensor ----
+  if(sensorSource === 'mouse'){
+    // mouse mode: HOLDING CLICK = touching. Releasing = not touching.
+    // (much more honest simulation of the plant sensor)
+    touchValue = mouseIsDown ? 0.7 : 0;
+    if(touchValue > touchThreshold) lastTouchTime = millis()/1000;
+  } else if(sensorSource === 'auto'){
+    autoCyclePos += 0.003;
+    if(autoCyclePos > NUM_STATES + 1) autoCyclePos = 0;
+    touchValue = autoCyclePos > NUM_STATES ? 0 : 0.7;
+    if(touchValue > touchThreshold) lastTouchTime = millis()/1000;
+  }
+  // (serial updates touchValue directly)
+
+  // ---- ADVANCE CYCLE — ONLY while actively touched ----
+  // Uses RAW touchValue, not smoothed. Release = instant stop.
+  if(sensorSource === 'auto'){
+    cycleIntent = constrain(autoCyclePos, 0, NUM_STATES - 0.001);
+  } else if(touchValue > touchThreshold){
+    const distToNextStage = Math.ceil(cycleIntent + 0.001) - cycleIntent;
+    const stagePause = distToNextStage < 0.15 ? 0.3 : 1.0;
+    cycleIntent += touchValue * cycleSpeed * stagePause;
+    if(cycleIntent >= NUM_STATES) cycleIntent = 0;
+  }
+  // NOT touching → cycleIntent stays exactly where it is. No drift.
+
+  // ---- CLOUD MIX ----
+  const timeSinceTouch = (millis()/1000) - lastTouchTime;
+  const cloudTarget = constrain((timeSinceTouch - releaseDelay) / 2, 0, 1);
+  const cloudEase = cloudTarget > cloudMix ? 0.025 : 0.06;
+  cloudMix += (cloudTarget - cloudMix) * cloudEase;
+
+  // ---- HUD ----
+  document.getElementById('barfill').style.width = ((cycleIntent / NUM_STATES) * 100) + '%';
+  const currentStage = constrain(floor(cycleIntent), 0, NUM_STATES-1);
+  for(let i=0; i<NUM_STATES; i++){
+    document.getElementById('dot'+i).classList.toggle('active',
+      i === currentStage && cloudMix < 0.4);
+  }
+  document.getElementById('dRaw').textContent = serialLastValue;
+  document.getElementById('dTouch').textContent = touchValue.toFixed(3);
+  document.getElementById('dTouch').classList.toggle('active', touchValue > touchThreshold);
+  const elapsed = (millis() - serialWindowStart) / 1000;
+  if(elapsed > 1){
+    document.getElementById('dRate').textContent = Math.round(serialMsgCount / elapsed);
+    serialWindowStart = millis();
+    serialMsgCount = 0;
+  }
+
+  updateNarrative();
+
+  background(6, 6, 10);
+  if(loadedCount === 0) return;
+  renderParticles();
+}
+
+function renderParticles(){
+  pgRender.clear();
+  pgRender.push();
+  // NO ROTATION — frontal portrait, facing the viewer.
+  // Slight fixed tilt for presence (2 degrees), nothing more.
+  pgRender.rotateX(-0.03);
+
+  const t = millis() * 0.001;
+  const stageA = constrain(floor(cycleIntent), 0, NUM_STATES-1);
+  const stageB = constrain(stageA + 1, 0, NUM_STATES-1);
+  const mixAB = cycleIntent - stageA;
+  const mixABSmooth = mixAB * mixAB * (3 - 2*mixAB);
+  const cS = cloudMix * cloudMix * (3 - 2*cloudMix);
+
+  for(const p of particles){
+    let tA = p.targets[stageA] || p.targets.find(t => t !== null);
+    let tB = p.targets[stageB] || tA;
+
+    // flower form (z scaled by depthRelief slider — low = flat/photo)
+    let fx = lerp(tA.x, tB.x, mixABSmooth);
+    let fy = lerp(tA.y, tB.y, mixABSmooth);
+    let fz = lerp(tA.z, tB.z, mixABSmooth) * depthRelief;
+
+    // cloud form
+    const cRad = cloudRadius * p.cloudDist;
+    let cx = p.cloudDir.x * cRad;
+    let cy = p.cloudDir.y * cRad;
+    let cz = p.cloudDir.z * cRad;
+    const nScale = 0.003;
+    cx += (noise(p.driftSeed*nScale, t*0.1, 0) - 0.5) * cloudRadius * cloudTurbulence * 0.5;
+    cy += (noise(p.driftSeed*nScale + 100, t*0.1, 0) - 0.5) * cloudRadius * cloudTurbulence * 0.5;
+    cz += (noise(p.driftSeed*nScale + 200, t*0.1, 0) - 0.5) * cloudRadius * cloudTurbulence * 0.5;
+    cx += sin(t * 0.3 + p.phase) * 15;
+    cy += cos(t * 0.25 + p.phase) * 15;
+
+    let tx = lerp(fx, cx, cS);
+    let ty = lerp(fy, cy, cS);
+    let tz = lerp(fz, cz, cS);
+
+    // Very subtle breathing in flower form (almost still — photographic)
+    if(cS < 0.5){
+      tx += sin(t*0.4 + p.phase) * 0.8 * (1 - cS);
+      ty += cos(t*0.35 + p.phase) * 0.8 * (1 - cS);
+    }
+
+    const chase = lerp(0.10, 0.02, cS);
+    const damp  = lerp(0.78, 0.96, cS);
+    p.vx += (tx - p.cur.x) * chase;
+    p.vy += (ty - p.cur.y) * chase;
+    p.vz += (tz - p.cur.z) * chase;
+    p.vx*=damp; p.vy*=damp; p.vz*=damp;
+    p.cur.x += p.vx; p.cur.y += p.vy; p.cur.z += p.vz;
+
+    // Color — with photographic grain (per-point brightness variation)
+    let cR = lerp(tA.r, tB.r, mixABSmooth) * p.grainBright;
+    let cG = lerp(tA.g, tB.g, mixABSmooth) * p.grainBright;
+    let cB = lerp(tA.b, tB.b, mixABSmooth) * p.grainBright;
+    cR = lerp(cR, 235, cS * 0.4);
+    cG = lerp(cG, 220, cS * 0.4);
+    cB = lerp(cB, 240, cS * 0.5);
+
+    const alpha = lerp(235, 130, cS) * p.grainAlpha;
+
+    pgRender.strokeWeight(pointSize * p.grainSize);
+    pgRender.stroke(cR, cG, cB, alpha);
+    pgRender.point(p.cur.x, p.cur.y, p.cur.z);
+  }
+  pgRender.pop();
+  image(pgRender, 0, 0);
+}
+
+function keyPressed(){
+  if(key >= '1' && key <= '3'){
+    cycleIntent = parseInt(key) - 1;
+    lastTouchTime = millis()/1000;
+  }
+  if(key === 'p' || key === 'P'){
+    togglePresentation();
+  }
+  if(key === 'h' || key === 'H'){
+    document.querySelectorAll('#connectBar, .panel, .bottom-hud').forEach(el =>
+      el.style.display = el.style.display === 'none' ? '' : 'none'
+    );
+  }
+}
+
+function windowResized(){
+  W = min(windowWidth, 1200);
+  H = min(windowHeight, 1200);
+  resizeCanvas(W, H);
+  pgRender = createGraphics(W, H, WEBGL);
+  pgRender.pixelDensity(1);
+}
+</script>
+</body>
+</html>
