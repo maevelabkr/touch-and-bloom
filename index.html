@@ -103,6 +103,11 @@ body{
   text-align:right;
   text-transform:lowercase;
 }
+.hero-cta{
+  margin-top:clamp(28px,5vh,52px);
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+}
+.hero-cta .hero-hint{text-align:center}
 @media (prefers-reduced-motion:reduce){
   .mask > .up, .mask-inline > .up{animation:none;transform:none}
   .fade-in{animation:none;opacity:1}
@@ -151,6 +156,14 @@ body{
   margin-bottom:clamp(28px,4vw,52px);
   color:var(--violet);
 }
+.statement-body{
+  margin-top:clamp(28px,4vw,48px);
+  font-size:clamp(1rem,1.7vw,1.2rem);
+  line-height:1.65;
+  max-width:56ch;
+  color:#3d3548;
+}
+.statement-body .serif-i{color:var(--violet);font-size:1.1em}
 
 /* ============ STAGES ============ */
 .stages .label{color:var(--violet);margin-bottom:clamp(28px,4vw,52px)}
@@ -206,6 +219,14 @@ body{
   margin:0 auto;
 }
 .zerog p.big em{font-style:italic;color:var(--lilac)}
+.zerog .coherence{
+  margin-top:clamp(24px,3.5vw,44px);
+  font-family:'Space Mono',monospace;
+  font-size:clamp(.72rem,1.5vw,.88rem);
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--lilac);
+}
 
 /* ============ SEASON ============ */
 .season{text-align:left}
@@ -218,6 +239,14 @@ body{
 }
 .season h2 .v{color:var(--violet)}
 .season h2 .s{color:var(--sage)}
+.season-body{
+  margin-top:clamp(28px,4.5vw,56px);
+  font-size:clamp(1.05rem,1.9vw,1.35rem);
+  line-height:1.6;
+  max-width:44ch;
+  color:#3d3548;
+}
+.season-body .serif-i{color:var(--violet);font-size:1.12em}
 .season .question{
   margin-top:clamp(32px,5vw,64px);
   font-family:'Instrument Serif',serif;
@@ -351,13 +380,13 @@ footer{
         <span class="mask" aria-hidden="true"><span class="up" style="animation-delay:.15s">Touch <span class="amp">&amp;</span></span></span>
         <span class="mask" aria-hidden="true"><span class="up" style="animation-delay:.32s"><span class="it">Bloom</span></span></span>
       </h1>
-    </div>
-    <div class="hero-bottom">
-      <p class="instruction fade-in" style="animation-delay:1.4s"><span class="serif-i">Move through the field.</span><br>The light leans toward your touch — and blooms where you linger.</p>
-      <div class="fade-in" style="animation-delay:1.55s;display:flex;flex-direction:column;align-items:flex-end;gap:14px">
+      <div class="hero-cta fade-in" style="animation-delay:1.55s">
         <a class="cta" href="installation.html" target="_blank" rel="noopener">Enter the installation <span class="fl">✿</span></a>
         <div class="hero-hint">cursor = touch · stillness = zero gravity</div>
       </div>
+    </div>
+    <div class="hero-bottom">
+      <p class="instruction fade-in" style="animation-delay:1.4s"><span class="serif-i">Move through the field.</span><br>The light leans toward your touch — and blooms where you linger.</p>
     </div>
   </div>
 </section>
@@ -375,6 +404,7 @@ footer{
   <div class="inner reveal">
     <div class="eyebrow label">The Piece</div>
     <p class="big">A real lavender rests on a pedestal beside a screen. <span class="serif-i">Touch it,</span> and a second lavender — a constellation of light — moves through the stages of its existence.</p>
+    <p class="statement-body">Touch and Bloom is an interactive installation that translates <span class="serif-i">a gesture into a life cycle.</span> When a viewer touches the plant, a capacitive sensor reads the contact and advances the digital lavender through three stages of its existence: sprout, seedling, bloom.</p>
   </div>
 </section>
 
@@ -410,8 +440,9 @@ footer{
 <section class="section zerog">
   <canvas id="driftCanvas" aria-hidden="true"></canvas>
   <div class="inner reveal">
-    <div class="eyebrow label">State 00</div>
+    <div class="eyebrow label">State 00 — Zero Gravity</div>
     <p class="big">When no one touches, the form dissolves. Weightless. Suspended between forms — <em>neither one stage nor another.</em></p>
+    <p class="coherence">A touch returns them to coherence.</p>
   </div>
 </section>
 
@@ -419,6 +450,7 @@ footer{
 <section class="section light season">
   <div class="inner reveal">
     <h2>You are the <span class="v">season,</span><br>the <span class="s">rain,</span><br>the <span class="v">sun.</span></h2>
+    <p class="season-body">The plant cannot grow without being touched — <span class="serif-i">only with your participation.</span></p>
     <p class="question">What is the relationship between a living thing and the time of its existence?</p>
     <div class="cta-row">
       <a class="cta dark-on-light" href="installation.html" target="_blank" rel="noopener">Grow the lavender yourself <span class="fl">✿</span></a>
