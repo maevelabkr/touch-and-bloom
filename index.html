@@ -338,6 +338,69 @@ footer{
 .cta.dark-on-light .fl{color:var(--violet)}
 .cta.dark-on-light:hover{background:var(--ink);color:var(--paper)}
 .cta-row{margin-top:clamp(36px,5vw,60px)}
+button.cta{background:transparent;cursor:pointer}
+
+/* ============ MODAL ============ */
+.modal-overlay{
+  position:fixed;inset:0;z-index:1000;
+  display:flex;align-items:center;justify-content:center;
+  padding:24px;
+  background:rgba(15,10,24,.72);
+  backdrop-filter:blur(6px);
+  opacity:0;visibility:hidden;
+  transition:opacity .4s ease,visibility .4s ease;
+}
+.modal-overlay.open{opacity:1;visibility:visible}
+.modal{
+  position:relative;
+  max-width:440px;width:100%;
+  background:var(--paper);color:var(--ink);
+  border:1px solid var(--lilac);
+  border-radius:20px;
+  padding:clamp(32px,6vw,48px);
+  text-align:center;
+  transform:translateY(18px) scale(.97);
+  transition:transform .45s cubic-bezier(.19,1,.22,1);
+  box-shadow:0 40px 90px rgba(15,10,24,.5);
+}
+.modal-overlay.open .modal{transform:translateY(0) scale(1)}
+.modal .fl-mark{font-size:1.6rem;color:var(--violet);display:block;margin-bottom:14px}
+.modal .modal-eyebrow{
+  font-family:'Space Mono',monospace;
+  font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--haze);margin-bottom:16px;
+}
+.modal h2{
+  font-family:'Instrument Serif',serif;font-weight:400;
+  font-size:clamp(1.8rem,5vw,2.4rem);line-height:1.1;
+  margin-bottom:18px;
+}
+.modal .modal-body{
+  font-family:'Archivo',sans-serif;
+  font-size:clamp(.95rem,2vw,1.05rem);line-height:1.6;
+  color:#3a3346;margin-bottom:8px;
+}
+.modal .modal-when{
+  font-family:'Space Mono',monospace;
+  font-size:.9rem;letter-spacing:.06em;
+  color:var(--violet);font-weight:700;
+  margin:22px 0 6px;
+}
+.modal .modal-where{
+  font-family:'Space Mono',monospace;
+  font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink);
+}
+.modal .modal-close{
+  position:absolute;top:14px;right:16px;
+  width:38px;height:38px;
+  display:flex;align-items:center;justify-content:center;
+  background:transparent;border:none;cursor:pointer;
+  font-size:1.5rem;line-height:1;color:var(--haze);
+  border-radius:50%;transition:background .2s,color .2s;
+}
+.modal .modal-close:hover{background:rgba(110,79,179,.12);color:var(--violet)}
+.modal .modal-close:focus-visible{outline:3px solid var(--lilac);outline-offset:2px}
 
 /* ============ REVEAL ============ */
 .reveal{opacity:0;transform:translateY(26px);transition:opacity .6s ease,transform .6s ease}
@@ -381,7 +444,7 @@ footer{
         <span class="mask" aria-hidden="true"><span class="up" style="animation-delay:.32s"><span class="it">Bloom</span></span></span>
       </h1>
       <div class="hero-cta fade-in" style="animation-delay:1.55s">
-        <a class="cta" href="installation.html" target="_blank" rel="noopener">Enter the installation <span class="fl">✿</span></a>
+        <button type="button" class="cta" data-open-modal>Enter the installation <span class="fl">✿</span></button>
         <div class="hero-hint">cursor = touch · stillness = zero gravity</div>
       </div>
     </div>
@@ -453,7 +516,7 @@ footer{
     <p class="season-body">The plant cannot grow without being touched — <span class="serif-i">only with your participation.</span></p>
     <p class="question">What is the relationship between a living thing and the time of its existence?</p>
     <div class="cta-row">
-      <a class="cta dark-on-light" href="installation.html" target="_blank" rel="noopener">Grow the lavender yourself <span class="fl">✿</span></a>
+      <button type="button" class="cta dark-on-light" data-open-modal>Grow the lavender yourself <span class="fl">✿</span></button>
     </div>
   </div>
 </section>
@@ -849,6 +912,47 @@ footer{
     document.querySelectorAll('.reveal').forEach(el=>el.classList.add('in'));
   }
 })();
+
+// ============ EXHIBITION MODAL ============
+document.addEventListener('DOMContentLoaded', function(){
+  const overlay = document.getElementById('exhibitionModal');
+  if(!overlay) return;
+  const triggers = document.querySelectorAll('[data-open-modal]');
+  const closeBtn = overlay.querySelector('.modal-close');
+  let lastFocused = null;
+
+  function open(){
+    lastFocused = document.activeElement;
+    overlay.classList.add('open');
+    overlay.setAttribute('aria-hidden','false');
+    closeBtn.focus();
+  }
+  function close(){
+    overlay.classList.remove('open');
+    overlay.setAttribute('aria-hidden','true');
+    if(lastFocused) lastFocused.focus();
+  }
+
+  triggers.forEach(t => t.addEventListener('click', open));
+  closeBtn.addEventListener('click', close);
+  overlay.addEventListener('click', e => { if(e.target === overlay) close(); });
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape' && overlay.classList.contains('open')) close();
+  });
+});
 </script>
+
+<!-- EXHIBITION MODAL -->
+<div class="modal-overlay" id="exhibitionModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-hidden="true">
+  <div class="modal">
+    <button type="button" class="modal-close" aria-label="Close">&times;</button>
+    <span class="fl-mark" aria-hidden="true">✿</span>
+    <div class="modal-eyebrow">Now on view</div>
+    <h2 id="modalTitle">Come touch the lavender</h2>
+    <p class="modal-body">Touch and Bloom is exhibiting live. Place your hand on the plant and watch a lavender move through its whole life in seconds — sprout, seedling, bloom.</p>
+    <div class="modal-when">Today · July 9 · 2:00 PM</div>
+    <div class="modal-where">UE Potsdam</div>
+  </div>
+</div>
 </body>
 </html>
